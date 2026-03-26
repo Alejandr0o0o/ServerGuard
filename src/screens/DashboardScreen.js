@@ -1,134 +1,228 @@
+import {
+    Feather,
+    MaterialCommunityIcons
+} from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
+import { SensorCard } from "../components/ReusableComponents";
+import Colors from "../constants/Colors";
 
-// COMPONENTE REUTILIZABLE
-const SensorCard = ({ title, value, unit, statusColor }) => (
-  <View style={[styles.card, { borderLeftColor: statusColor }]}>
-    <Text style={styles.cardTitle}>{title}</Text>
-    <Text style={styles.cardValue}>
-      {value}
-      <Text style={styles.cardUnit}>{unit}</Text>
-    </Text>
+// Componente para una métrica de estadísticas individual
+const StatItem = ({ label, value }) => (
+  <View style={styles.statItem}>
+    <Text style={styles.statLabel}>{label}</Text>
+    <Text style={styles.statValue}>{value}</Text>
   </View>
 );
 
 export default function DashboardScreen({ navigation }) {
-  // HOOKS: Manejo de estado simulando los sensores
+  // HOOKS: Manejo de estado simulando datos de sensores en tiempo real
   const [temperatura, setTemperatura] = useState(22.5);
   const [humedad, setHumedad] = useState(45);
 
-  // HOOKS: Simulamos la actualización de datos cada 3 segundos
+  // HOOKS: Simulación de actualización de datos cada 3 segundos
   useEffect(() => {
     const intervalo = setInterval(() => {
-      // Variamos un poco los valores para que parezca "en vivo"
+      // Pequeñas variaciones aleatorias para que parezca "en vivo"
       setTemperatura(
-        (prev) => +(prev + (Math.random() * 0.4 - 0.2)).toFixed(1),
+        (prev) => +(prev + (Math.random() * 0.3 - 0.15)).toFixed(1),
       );
       setHumedad((prev) => Math.floor(prev + (Math.random() * 2 - 1)));
     }, 3000);
 
-    return () => clearInterval(intervalo); // Limpiamos el intervalo al salir
+    return () => clearInterval(intervalo); // Limpieza al desmontar
   }, []);
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+    >
+      {/* HEADER PRINCIPAL */}
       <View style={styles.header}>
-        <Text style={styles.title}>Estado del Site</Text>
-        <Text style={styles.subtitle}>Monitoreo en tiempo real</Text>
+        <View style={styles.headerLeft}>
+          <MaterialCommunityIcons
+            name="shield-outline"
+            size={32}
+            color={Colors.primary}
+          />
+          <Text style={styles.appName}>SERVERGUARD</Text>
+        </View>
+        <TouchableOpacity style={styles.avatar}>
+          <Text style={styles.avatarText}>A</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.grid}>
+      <Text style={styles.greeting}>Hello, Alejandro</Text>
+      <View style={styles.statusRow}>
+        <View
+          style={[styles.statusDot, { backgroundColor: Colors.statusOptimal }]}
+        />
+        <Text style={styles.statusText}>Server Room: Secure</Text>
+      </View>
+
+      {/* SECCIÓN DE SENSORES EN VIVO */}
+      <Text style={styles.sectionTitle}>LIVE SENSORS</Text>
+      <View style={styles.sensorGrid}>
         <SensorCard
-          title="Temperatura"
+          iconName="thermometer-lines"
+          title="TEMPERATURE"
           value={temperatura}
-          unit=" °C"
-          statusColor={temperatura > 25 ? "#FF4D4F" : "#52C41A"} // Cambia a rojo si se calienta
+          unit="°C"
+          statusText="Optimal"
+          statusColor={Colors.statusOptimal}
+          topBorderColor={
+            temperatura > 25 ? Colors.danger : Colors.statusOptimal
+          } // Cambia a rojo si hay mucho calor
         />
         <SensorCard
-          title="Humedad Relativa"
+          iconName="water"
+          title="HUMIDITY"
           value={humedad}
-          unit=" %"
-          statusColor="#1890FF"
+          unit="%"
+          statusText="Normal"
+          statusColor={Colors.statusNormal}
         />
         <SensorCard
-          title="Estado Puerta"
-          value="Cerrada"
-          unit=""
-          statusColor="#52C41A"
+          iconName="fan"
+          title="AC UNITS"
+          value="2 Running"
+          statusText="Active"
+          statusColor={Colors.textSecondary}
         />
         <SensorCard
-          title="Humo / Fuego"
-          value="Seguro"
-          unit=""
-          statusColor="#52C41A"
+          iconName="zap"
+          title="POWER LOAD"
+          value="3.8 kW"
+          statusText="Stable"
+          statusColor={Colors.textSecondary}
         />
       </View>
 
-      {/* MANEJO DE EVENTOS Y NAVEGACIÓN */}
+      {/* SECCIÓN DE ESTADÍSTICAS DEL SISTEMA */}
+      <View style={styles.statsCard}>
+        <StatItem label="SYSTEM UPTIME" value="99.97%" />
+        <View style={styles.statDivider} />
+        <StatItem label="ACTIVE ALERTS" value="0" />
+        <View style={styles.statDivider} />
+        <StatItem label="DEVICES" value="12" />
+      </View>
+
+      {/* BOTÓN DE ACCIÓN PRINCIPAL (con efecto de brillo azul) */}
       <TouchableOpacity
-        style={styles.button}
-        onPress={() =>
-          navigation.navigate("Perfil", {
-            adminName: "Alejandro",
-            role: "SysAdmin",
-          })
-        }
+        style={styles.actionButton}
+        onPress={() => {
+          /* Navegación futura a logs detallados */
+        }}
       >
-        <Text style={styles.buttonText}>Ver Perfil de Administrador</Text>
+        <Text style={styles.actionButtonText}>View Detailed Logs</Text>
+        <Feather name="chevron-right" size={20} color={Colors.textPrimary} />
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F0F2F5" },
-  header: {
-    padding: 24,
-    backgroundColor: "#001529",
-    borderBottomRightRadius: 20,
-    borderBottomLeftRadius: 20,
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingHorizontal: 20,
   },
-  title: { fontSize: 28, fontWeight: "bold", color: "#FFFFFF" },
-  subtitle: { fontSize: 16, color: "#A6ADB4", marginTop: 5 },
-  grid: {
-    padding: 16,
+  contentContainer: { paddingBottom: 40, paddingTop: 60 },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 30,
+  },
+  headerLeft: { flexDirection: "row", alignItems: "center" },
+  appName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: Colors.primary,
+    marginLeft: 10,
+    textTransform: "uppercase",
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: { fontSize: 22, fontWeight: "bold", color: Colors.background },
+  greeting: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+    marginBottom: 5,
+  },
+  statusRow: { flexDirection: "row", alignItems: "center", marginBottom: 40 },
+  statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
+  statusText: { fontSize: 16, color: Colors.textSecondary },
+  sectionTitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textTransform: "uppercase",
+    fontWeight: "600",
+    marginBottom: 20,
+  },
+  sensorGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
-  card: {
-    backgroundColor: "#FFF",
-    width: "48%",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderLeftWidth: 4,
+  statsCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 25,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 5,
+    elevation: 4,
   },
-  cardTitle: {
-    fontSize: 14,
-    color: "#8C8C8C",
-    marginBottom: 8,
-    fontWeight: "600",
+  statDivider: {
+    width: 1,
+    height: "80%",
+    backgroundColor: "#4B5563",
+    alignSelf: "center",
   },
-  cardValue: { fontSize: 24, fontWeight: "bold", color: "#262626" },
-  cardUnit: { fontSize: 14, fontWeight: "normal" },
-  button: {
-    backgroundColor: "#1890FF",
-    margin: 20,
-    padding: 16,
-    borderRadius: 10,
+  statItem: { flex: 1, alignItems: "center" },
+  statLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  statValue: { fontSize: 20, fontWeight: "700", color: Colors.textPrimary },
+  actionButton: {
+    backgroundColor: Colors.primary,
+    padding: 20,
+    borderRadius: 16,
+    flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 10, // Efecto de brillo
   },
-  buttonText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+  actionButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: "700",
+    marginRight: 10,
+  },
 });
