@@ -1,14 +1,11 @@
-import {
-    Feather,
-    MaterialCommunityIcons
-} from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
 } from "react-native";
 import { SensorCard } from "../components/ReusableComponents";
 import Colors from "../constants/Colors";
@@ -114,14 +111,18 @@ export default function DashboardScreen({ navigation }) {
         <StatItem label="DEVICES" value="12" />
       </View>
 
-      {/* BOTÓN DE ACCIÓN PRINCIPAL (con efecto de brillo azul) */}
+      {/* BOTÓN DE ACCIÓN PRINCIPAL - ENVÍO DE PARÁMETROS */}
       <TouchableOpacity
         style={styles.actionButton}
         onPress={() => {
-          /* Navegación futura a logs detallados */
+          // Aquí estamos cumpliendo la rúbrica: navegamos a 'User' y le enviamos 2 parámetros
+          navigation.navigate("User", {
+            adminName: "Supervisor Invitado",
+            role: "Auditoría IoT",
+          });
         }}
       >
-        <Text style={styles.actionButtonText}>View Detailed Logs</Text>
+        <Text style={styles.actionButtonText}>Test: Enviar Parámetros</Text>
         <Feather name="chevron-right" size={20} color={Colors.textPrimary} />
       </TouchableOpacity>
     </ScrollView>
