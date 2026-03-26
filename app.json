@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "iot-admin-app",
-    "slug": "iot-admin-app",
+    "name": "ServerGuard",
+    "slug": "ServerGuard",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
