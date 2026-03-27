@@ -1,7 +1,7 @@
 import {
-    Feather,
-    MaterialCommunityIcons,
-    MaterialIcons,
+  Feather,
+  MaterialCommunityIcons,
+  MaterialIcons,
 } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { CustomTabButton } from "../components/ReusableComponents";
@@ -9,8 +9,8 @@ import Colors from "../constants/Colors";
 
 // Importamos las pantallas reales
 import DashboardScreen from "../screens/DashboardScreen";
+import DetailsScreen from "../screens/DetailsScreen";
 import UserProfileScreen from "../screens/UserProfileScreen";
-
 const Tab = createBottomTabNavigator();
 
 // Función auxiliar para elegir el icono adecuado según la pestaña y estado
@@ -74,18 +74,17 @@ export default function MainTabNavigator() {
       {/* Podemos poner pestañas de "relleno" para que se vea como en tu diseño, 
           apuntando al Dashboard temporalmente o creando componentes vacíos */}
       <Tab.Screen
-        name="Details"
-        component={DashboardScreen}
-        listeners={{ tabPress: (e) => e.preventDefault() }}
-      />
+        name="Details" component={DetailsScreen}/>
 
-      <Tab.Screen name="User" component={UserProfileScreen} />
+      <Tab.Screen 
+        name="User" component={UserProfileScreen} />
 
       <Tab.Screen
         name="Settings"
         component={DashboardScreen}
         listeners={{ tabPress: (e) => e.preventDefault() }}
       />
+      
     </Tab.Navigator>
   );
 }
