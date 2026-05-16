@@ -6,6 +6,7 @@ import {
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { CustomTabButton } from "../components/ReusableComponents";
 import Colors from "../constants/Colors";
+import SettingsScreen from "../screens/SettingsScreen";
 
 // Importamos las pantallas reales
 import DashboardScreen from "../screens/DashboardScreen";
@@ -73,18 +74,11 @@ export default function MainTabNavigator() {
 
       {/* Podemos poner pestañas de "relleno" para que se vea como en tu diseño, 
           apuntando al Dashboard temporalmente o creando componentes vacíos */}
-      <Tab.Screen
-        name="Details" component={DetailsScreen}/>
+      <Tab.Screen name="Details" component={DetailsScreen} />
 
-      <Tab.Screen 
-        name="User" component={UserProfileScreen} />
+      <Tab.Screen name="User" component={UserProfileScreen} />
 
-      <Tab.Screen
-        name="Settings"
-        component={DashboardScreen}
-        listeners={{ tabPress: (e) => e.preventDefault() }}
-      />
-      
+      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
