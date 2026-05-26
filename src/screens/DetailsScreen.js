@@ -1,72 +1,165 @@
-import { AlertTriangle, ChevronRight } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const ServerItem = ({ name, ip, status, load }) => (
-  <TouchableOpacity style={styles.serverCard}>
-    <View style={[styles.statusDot, { backgroundColor: status === 'Online' ? '#10b981' : '#ef4444' }]} />
-    <View style={styles.serverInfo}>
-      <Text style={styles.serverName}>{name}</Text>
-      <Text style={styles.serverIp}>{ip}</Text>
-    </View>
-    <View style={styles.serverStats}>
-      <Text style={styles.loadText}>{load}% CPU</Text>
-      <ChevronRight size={18} color="#475569" />
-    </View>
-  </TouchableOpacity>
-);
+import { MaterialIcons } from "@expo/vector-icons";
+import * as SQLite from "expo-sqlite";
+import { useEffect, useState } from "react";
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function DetailsScreen() {
+  const [db, setDb] = useState(null);
+  const [notes, setNotes] = useState([]);
+  const [inputText, setInputText] = useState("");
+
+  // 1. Inicializar la Base de Datos Local y crear la tabla
+  useEffect(() => {
+    const initDB = async () => {
+      try {
+        // Abre o crea el archivo .db físicamente en el celular
+        const database = await SQLite.openDatabaseAsync("serverguard_local.db");
+        setDb(database);
+
+        // Crea la tabla si no existe
+        await database.execAsync(`
+          CREATE TABLE IF NOT EXISTS bitacora (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nota TEXT NOT NULL,
+            fecha TEXT NOT NULL
+          );
+        `);
+
+        // Carga las notas existentes
+        await loadNotes(database);
+      } catch (error) {
+        console.error("Error iniciando SQLite:", error);
+      }
+    };
+    initDB();
+  }, []);
+
+  // 2. Leer las notas (READ)
+  const loadNotes = async (database) => {
+    try {
+      const allNotes = await database.getAllAsync(
+        "SELECT * FROM bitacora ORDER BY id DESC;",
+      );
+      setNotes(allNotes);
+    } catch (error) {
+      console.error("Error cargando notas:", error);
+    }
+  };
+
+  // 3. Agregar una nueva nota (CREATE)
+  const addNote = async () => {
+    if (inputText.trim() === "" || !db) return;
+
+    const fechaActual = new Date().toLocaleString();
+    try {
+      await db.runAsync("INSERT INTO bitacora (nota, fecha) VALUES (?, ?)", [
+        inputText,
+        fechaActual,
+      ]);
+      setInputText(""); // Limpiar el input
+      await loadNotes(db); // Recargar la lista
+    } catch (error) {
+      console.error("Error guardando nota:", error);
+    }
+  };
+
+  // 4. Eliminar una nota (DELETE)
+  const deleteNote = async (id) => {
+    if (!db) return;
+    try {
+      await db.runAsync("DELETE FROM bitacora WHERE id = ?", [id]);
+      await loadNotes(db);
+    } catch (error) {
+      console.error("Error eliminando nota:", error);
+    }
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.headerTitle}>Infraestructura</Text>
-      
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Servidores Activos</Text>
-        <ServerItem name="Main Database" ip="192.168.1.10" status="Online" load="24" />
-        <ServerItem name="Web Cluster A" ip="192.168.1.12" status="Online" load="45" />
-        <ServerItem name="Backup Server" ip="192.168.1.15" status="Offline" load="0" />
+    <View style={styles.container}>
+      <Text style={styles.title}>Bitácora Local (SQLite)</Text>
+
+      {/* Zona para escribir */}
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej: Mantenimiento rack 2..."
+          placeholderTextColor="#64748B"
+          value={inputText}
+          onChangeText={setInputText}
+        />
+        <TouchableOpacity style={styles.addButton} onPress={addNote}>
+          <MaterialIcons name="add" size={24} color="#FFF" />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Alertas de Seguridad</Text>
-        <View style={styles.alertCard}>
-          <AlertTriangle color="#f59e0b" size={20} />
-          <Text style={styles.alertText}>Intento de acceso no autorizado en Nodo 4</Text>
-        </View>
-      </View>
-    </ScrollView>
+      {/* Lista de Notas Guardadas */}
+      <FlatList
+        data={notes}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardText}>{item.nota}</Text>
+              <Text style={styles.cardDate}>{item.fecha}</Text>
+            </View>
+            <TouchableOpacity onPress={() => deleteNote(item.id)}>
+              <MaterialIcons name="delete" size={24} color="#EF4444" />
+            </TouchableOpacity>
+          </View>
+        )}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>No hay registros locales.</Text>
+        }
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#020617', padding: 20 },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginTop: 40, marginBottom: 20 },
-  section: { marginBottom: 25 },
-  sectionTitle: { color: '#64748b', fontSize: 14, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase' },
-  serverCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+  container: {
+    flex: 1,
+    backgroundColor: "#0F172A",
+    padding: 20,
+    paddingTop: 60,
+  },
+  title: { fontSize: 24, fontWeight: "bold", color: "#FFF", marginBottom: 20 },
+  inputContainer: { flexDirection: "row", marginBottom: 20 },
+  input: {
+    flex: 1,
+    backgroundColor: "#1E293B",
+    color: "#FFF",
+    padding: 15,
+    borderRadius: 10,
+    marginRight: 10,
+  },
+  addButton: {
+    backgroundColor: "#3B82F6",
+    padding: 15,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  card: {
+    backgroundColor: "#1E293B",
+    padding: 15,
+    borderRadius: 10,
     marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#1e293b'
+    flexDirection: "row",
+    alignItems: "center",
   },
-  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 12 },
-  serverInfo: { flex: 1 },
-  serverName: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  serverIp: { color: '#64748b', fontSize: 13 },
-  serverStats: { flexDirection: 'row', alignItems: 'center' },
-  loadText: { color: '#10b981', fontSize: 13, marginRight: 8 },
-  alertCard: {
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.2)'
+  cardText: { color: "#FFF", fontSize: 16 },
+  cardDate: { color: "#94A3B8", fontSize: 12, marginTop: 5 },
+  emptyText: {
+    color: "#64748B",
+    textAlign: "center",
+    marginTop: 20,
+    fontStyle: "italic",
   },
-  alertText: { color: '#f59e0b', fontSize: 14, marginLeft: 10, flex: 1 }
 });
