@@ -2,9 +2,9 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 
+import MainTabNavigator from "./src/navigation/MainTabNavigator";
 import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
-import MainTabNavigator from "./src/navigation/MainTabNavigator";
 
 const Stack = createNativeStackNavigator();
 
