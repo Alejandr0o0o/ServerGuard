@@ -1,229 +1,255 @@
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons"; // Para los iconos de los servidores
 import { useEffect, useState } from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { SensorCard } from "../components/ReusableComponents";
-import Colors from "../constants/Colors";
-
-// Componente para una métrica de estadísticas individual
-const StatItem = ({ label, value }) => (
-  <View style={styles.statItem}>
-    <Text style={styles.statLabel}>{label}</Text>
-    <Text style={styles.statValue}>{value}</Text>
-  </View>
-);
+import { supabase } from "../utils/supabase";
 
 export default function DashboardScreen({ navigation }) {
-  // HOOKS: Manejo de estado simulando datos de sensores en tiempo real
-  const [temperatura, setTemperatura] = useState(22.5);
-  const [humedad, setHumedad] = useState(45);
+  const [perfil, setPerfil] = useState(null);
+  const [dispositivos, setDispositivos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // HOOKS: Simulación de actualización de datos cada 3 segundos
   useEffect(() => {
-    const intervalo = setInterval(() => {
-      // Pequeñas variaciones aleatorias para que parezca "en vivo"
-      setTemperatura(
-        (prev) => +(prev + (Math.random() * 0.3 - 0.15)).toFixed(1),
-      );
-      setHumedad((prev) => Math.floor(prev + (Math.random() * 2 - 1)));
-    }, 3000);
-
-    return () => clearInterval(intervalo); // Limpieza al desmontar
+    fetchPerfil();
+    fetchRacks();
   }, []);
 
+  const fetchPerfil = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("perfiles")
+          .select("nombre, rol")
+          .eq("id", user.id)
+          .single();
+        if (data) setPerfil(data);
+      }
+    } catch (error) {
+      console.error("Error obteniendo perfil:", error);
+    }
+  };
+
+  // Función para obtener los Racks de la tabla 'racks'
+  const fetchRacks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("racks")
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (error) throw error;
+      if (data) setDispositivos(data); // Reutilizamos el estado dispositivos para guardar los racks
+    } catch (error) {
+      console.error("Error obteniendo racks:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  if (loading) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
+        <ActivityIndicator size="large" color="#3B82F6" />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-    >
-      {/* HEADER PRINCIPAL */}
+    <ScrollView style={styles.container}>
+      {/* Encabezado */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <MaterialCommunityIcons
-            name="shield-outline"
-            size={32}
-            color={Colors.primary}
-          />
-          <Text style={styles.appName}>SERVERGUARD</Text>
+        <View>
+          <Text style={styles.greeting}>Hola {perfil?.nombre} 👋</Text>
+          <Text style={styles.subtitle}>Centro de Datos Principal</Text>
+          <Text style={styles.roleBadge}>Rol: {perfil?.rol}</Text>
         </View>
-        <TouchableOpacity style={styles.avatar}>
-          <Text style={styles.avatarText}>A</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Salir</Text>
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.greeting}>Hello, Alejandro</Text>
-      <View style={styles.statusRow}>
+      {/* Tarjetas de Estadísticas */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{dispositivos.length}</Text>
+          <Text style={styles.statLabel}>Racks</Text>
+        </View>
         <View
-          style={[styles.statusDot, { backgroundColor: Colors.statusOptimal }]}
-        />
-        <Text style={styles.statusText}>Server Room: Secure</Text>
+          style={[
+            styles.statCard,
+            { borderLeftColor: "#EAB308", borderLeftWidth: 4 },
+          ]}
+        >
+          <Text style={styles.statValue}>3</Text>
+          <Text style={styles.statLabel}>Alertas</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>48</Text>
+          <Text style={styles.statLabel}>Sensores</Text>
+        </View>
       </View>
 
-      {/* SECCIÓN DE SENSORES EN VIVO */}
-      <Text style={styles.sectionTitle}>LIVE SENSORS</Text>
-      <View style={styles.sensorGrid}>
-        <SensorCard
-          iconName="thermometer-lines"
-          title="TEMPERATURE"
-          value={temperatura}
-          unit="°C"
-          statusText="Optimal"
-          statusColor={Colors.statusOptimal}
-          topBorderColor={
-            temperatura > 25 ? Colors.danger : Colors.statusOptimal
-          } // Cambia a rojo si hay mucho calor
-        />
-        <SensorCard
-          iconName="water"
-          title="HUMIDITY"
-          value={humedad}
-          unit="%"
-          statusText="Normal"
-          statusColor={Colors.statusNormal}
-        />
-        <SensorCard
-          iconName="fan"
-          title="AC UNITS"
-          value="2 Running"
-          statusText="Active"
-          statusColor={Colors.textSecondary}
-        />
-        <SensorCard
-          iconName="zap"
-          title="POWER LOAD"
-          value="3.8 kW"
-          statusText="Stable"
-          statusColor={Colors.textSecondary}
-        />
-      </View>
+      {/* SEGURIDAD BASADA EN ROLES */}
+      {perfil?.rol === "Administrador" && (
+        <View style={styles.adminSection}>
+          <Text style={styles.sectionTitle}>Panel de Administración</Text>
+          <TouchableOpacity style={styles.adminButton}>
+            <Text style={styles.adminButtonText}>
+              Gestión de Usuarios y Permisos
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      {/* SECCIÓN DE ESTADÍSTICAS DEL SISTEMA */}
-      <View style={styles.statsCard}>
-        <StatItem label="SYSTEM UPTIME" value="99.97%" />
-        <View style={styles.statDivider} />
-        <StatItem label="ACTIVE ALERTS" value="0" />
-        <View style={styles.statDivider} />
-        <StatItem label="DEVICES" value="12" />
-      </View>
+      {/* Sección de Servidores/Racks conectada a la BD */}
+      <View style={styles.racksSection}>
+        <Text style={styles.sectionTitle}>Racks Monitoreados</Text>
 
-      {/* BOTÓN DE ACCIÓN PRINCIPAL - ENVÍO DE PARÁMETROS */}
-      <TouchableOpacity
-        style={styles.actionButton}
-        onPress={() => {
-          // Aquí estamos cumpliendo la rúbrica: navegamos a 'User' y le enviamos 2 parámetros
-          navigation.navigate("User", {
-            adminName: "Supervisor Invitado",
-            role: "Auditoría IoT",
-          });
-        }}
-      >
-        <Text style={styles.actionButtonText}>Test: Enviar Parámetros</Text>
-        <Feather name="chevron-right" size={20} color={Colors.textPrimary} />
-      </TouchableOpacity>
+        {dispositivos.map((rack) => (
+          <TouchableOpacity
+            key={rack.id}
+            style={styles.rackCard}
+            onPress={() =>
+              navigation.navigate("Details", { rackSeleccionado: rack })
+            }
+          >
+            <View style={styles.rackIconContainer}>
+              <MaterialIcons name="dns" size={24} color="#94A3B8" />
+            </View>
+            <View style={styles.rackInfo}>
+              <Text style={styles.rackName}>{rack.nombre}</Text>
+              <View style={styles.rackStatusContainer}>
+                {/* Lógica de colores basada en el estado del Rack */}
+                <View
+                  style={[
+                    styles.statusDot,
+                    {
+                      backgroundColor:
+                        rack.estado === "Normal"
+                          ? "#10B981"
+                          : rack.estado === "Advertencia"
+                            ? "#EAB308"
+                            : "#EF4444",
+                    },
+                  ]}
+                />
+                <Text style={styles.rackStatusText}>{rack.estado}</Text>
+              </View>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color="#64748B" />
+          </TouchableOpacity>
+        ))}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-  },
-  contentContainer: { paddingBottom: 40, paddingTop: 60 },
+  container: { flex: 1, backgroundColor: "#0F172A", padding: 20 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginTop: 40,
     marginBottom: 30,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center" },
-  appName: {
-    fontSize: 20,
+  greeting: { fontSize: 24, fontWeight: "bold", color: "#FFF" },
+  subtitle: { fontSize: 14, color: "#94A3B8", marginTop: 5 },
+  roleBadge: {
+    fontSize: 12,
+    color: "#3B82F6",
+    marginTop: 5,
     fontWeight: "bold",
-    color: Colors.primary,
-    marginLeft: 10,
-    textTransform: "uppercase",
   },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.primary,
-    justifyContent: "center",
+  logoutButton: { backgroundColor: "#1E293B", padding: 10, borderRadius: 8 },
+  logoutText: { color: "#EF4444", fontWeight: "bold" },
+
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 30,
+  },
+  statCard: {
+    backgroundColor: "#1E293B",
+    padding: 15,
+    borderRadius: 12,
+    width: "30%",
     alignItems: "center",
   },
-  avatarText: { fontSize: 22, fontWeight: "bold", color: Colors.background },
-  greeting: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-    marginBottom: 5,
-  },
-  statusRow: { flexDirection: "row", alignItems: "center", marginBottom: 40 },
-  statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
-  statusText: { fontSize: 16, color: Colors.textSecondary },
-  sectionTitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    marginBottom: 20,
-  },
-  sensorGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  statsCard: {
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 25,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 4,
-  },
-  statDivider: {
-    width: 1,
-    height: "80%",
-    backgroundColor: "#4B5563",
-    alignSelf: "center",
-  },
-  statItem: { flex: 1, alignItems: "center" },
+  statValue: { fontSize: 22, fontWeight: "bold", color: "#FFF" },
   statLabel: {
     fontSize: 12,
-    color: Colors.textSecondary,
-    textTransform: "uppercase",
-    marginBottom: 4,
+    color: "#94A3B8",
+    marginTop: 5,
+    textAlign: "center",
   },
-  statValue: { fontSize: 20, fontWeight: "700", color: Colors.textPrimary },
-  actionButton: {
-    backgroundColor: Colors.primary,
+
+  adminSection: {
+    backgroundColor: "#1E293B",
     padding: 20,
-    borderRadius: 16,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 10, // Efecto de brillo
+    borderRadius: 12,
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: "#3B82F6",
   },
-  actionButtonText: {
-    color: Colors.textPrimary,
+  sectionTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    marginRight: 10,
+    fontWeight: "bold",
+    color: "#FFF",
+    marginBottom: 15,
+  },
+  adminButton: {
+    backgroundColor: "#3B82F6",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  adminButtonText: { color: "#FFF", fontWeight: "bold" },
+
+  racksSection: { marginBottom: 40 },
+  rackCard: {
+    backgroundColor: "#1E293B",
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  rackIconContainer: {
+    backgroundColor: "#334155",
+    padding: 10,
+    borderRadius: 8,
+    marginRight: 15,
+  },
+  rackInfo: { flex: 1 },
+  rackName: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+  rackStatusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  rackStatusText: {
+    color: "#94A3B8",
+    fontSize: 12,
+    textTransform: "capitalize",
   },
 });
