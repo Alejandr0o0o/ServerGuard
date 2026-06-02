@@ -1,74 +1,90 @@
-import { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { supabase } from "../utils/supabase";
 
 export default function RegisterScreen({ navigation }) {
+  const [nombre, setNombre] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  //estados
-  const [usuario, setUsuario] = useState('');
-  const [correo, setCorreo] = useState('');
-  const [password, setPassword] = useState('');
-
-  //funcion registrar
-  const registrarUsuario = () => {
-    //validar campos vacios
-    if(usuario.trim() === ''||correo.trim() === ''||password.trim() === ''){
-       Alert.alert(
-        'Error',
-        'Complete todos los campos'
-      );
+  const handleRegister = async () => {
+    if (!nombre || !email || !password) {
+      Alert.alert("Error", "Por favor llena todos los campos");
       return;
     }
-    //registro correcto
-    Alert.alert(
-      'Registro exitoso'
-    );
-    //navegar al main
-    navigation.replace('Main');
+
+    setLoading(true);
+    // Registra al usuario y pasa el nombre en los metadatos (para que el Trigger SQL lo lea)
+    const { error } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: { data: { nombre: nombre, rol: "Tecnico" } },
+    });
+
+    setLoading(false);
+
+    if (error) {
+      Alert.alert("Error al registrar", error.message);
+    } else {
+      Alert.alert(
+        "¡Éxito!",
+        "Cuenta creada correctamente. Por favor inicia sesión.",
+      );
+      navigation.navigate("Login");
+    }
   };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Crear Cuenta</Text>
 
       <TextInput
-        placeholder="Usuario"
-        placeholderTextColor="#9CA3AF"
         style={styles.input}
-        value={usuario}
-        onChangeText={setUsuario}
+        placeholder="Nombre completo"
+        placeholderTextColor="#64748B"
+        value={nombre}
+        onChangeText={setNombre}
       />
-
-       <TextInput
-        placeholder="Correo"
-        placeholderTextColor="#9CA3AF"
-        style={styles.input}
-        value={correo}
-        onChangeText={setCorreo}
-      />
-
       <TextInput
-        placeholder="Contraseña"
-        placeholderTextColor="#9CA3AF"
-        secureTextEntry
         style={styles.input}
+        placeholder="Correo electrónico"
+        placeholderTextColor="#64748B"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Contraseña"
+        placeholderTextColor="#64748B"
         value={password}
         onChangeText={setPassword}
+        secureTextEntry
       />
 
       <TouchableOpacity
-        style={styles.registerButton}
-        onPress={registrarUsuario}>
-        <Text style={styles.registerButtonText}>
-          Registrarse
-        </Text>
+        style={styles.button}
+        onPress={handleRegister}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFF" />
+        ) : (
+          <Text style={styles.buttonText}>Registrarse</Text>
+        )}
       </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => navigation.navigate('Login')}>
-
-        <Text style={styles.link}>
-          ¿Ya tienes cuenta? Inicia sesión
-        </Text>
-
+      <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+        <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
       </TouchableOpacity>
     </View>
   );
@@ -77,50 +93,31 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 30,
-    backgroundColor: '#0F172A'
+    backgroundColor: "#0F172A",
+    padding: 20,
+    justifyContent: "center",
   },
-
   title: {
-    fontSize: 34,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 40
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#FFF",
+    textAlign: "center",
+    marginBottom: 30,
   },
-
   input: {
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 20,
-    color: '#FFFFFF',
-    fontSize: 16
+    backgroundColor: "#1E293B",
+    color: "#FFF",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
   },
-
-  registerButton: {
-    backgroundColor: '#2563EB',
-    padding: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginTop: 10
+  button: {
+    backgroundColor: "#3B82F6",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
   },
-
-  registerButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold'
-  },
-
-  link: {
-    marginTop: 20,
-    textAlign: 'center',
-    color: '#60A5FA',
-    fontWeight: 'bold',
-    fontSize: 16
-  }
-
+  buttonText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
+  linkText: { color: "#3B82F6", textAlign: "center", marginTop: 20 },
 });
