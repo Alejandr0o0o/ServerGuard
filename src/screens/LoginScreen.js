@@ -1,63 +1,82 @@
-import { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { supabase } from "../utils/supabase";
 
 export default function LoginScreen({ navigation }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-//estados
-const [usuario, setUsuario] = useState('');
-const [password, setPassword] = useState('');
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Ingresa correo y contraseña");
+      return;
+    }
 
-//función para iniciar sesión
-const iniciarSesion = () =>{
-  if (usuario.trim() === '' || password.trim() === ''){
-    Alert.alert(
-      'Error',
-      'Datos vacíos. Ingrese los datos correctos por favor'
-    );
-    return;
-  }
-  //login correcto
-  Alert.alert(
-    'Bienvenido'
-  );
-  //navegar al main
-  navigation.replace('Main');
-}
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
+    setLoading(false);
+
+    if (error) {
+      // Bloqueo por credenciales incorrectas (Requisito de QA)
+      Alert.alert(
+        "Acceso Denegado",
+        "Credenciales incorrectas o usuario no encontrado.",
+      );
+    }
+    // Si es exitoso, App.js detectará el cambio y lo mandará al Dashboard automáticamente
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Iniciar Sesión</Text>
+      <View style={styles.logoContainer}>
+        <Text style={styles.logoText}>ServerGuard</Text>
+        <Text style={styles.subtitle}>Monitoreo inteligente</Text>
+      </View>
 
-      <TextInput placeholder="Usuario"
-      placeholderTextColor= "#9CA3AF"
-      style={styles.input}
-      value={usuario}
-      onChangeText={setUsuario} />
-
-      <TextInput placeholder="Contraseña"
-      secureTextEntry
-      placeholderTextColor="#9CA3AF"
-      style={styles.input}
-      value={password}
-      onChangeText={setPassword} />
-
-      <TouchableOpacity
-      style={styles.loginButton} 
-      onPress={iniciarSesion}>
-        <Text 
-        style={styles.loginButtonTxt}>
-          Entrar
-        </Text>
-      </TouchableOpacity>
+      <TextInput
+        style={styles.input}
+        placeholder="usuario@ejemplo.com"
+        placeholderTextColor="#64748B"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Contraseña"
+        placeholderTextColor="#64748B"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
 
       <TouchableOpacity
-      style={styles.registerButton}
-      onPress={()=>navigation.navigate('Register')}>
-        <Text
-        style={styles.registerButtonText}>
-          ¿No tienes cuenta? Registrate
-        </Text>
+        style={styles.button}
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFF" />
+        ) : (
+          <Text style={styles.buttonText}>Iniciar Sesión</Text>
+        )}
       </TouchableOpacity>
 
+      <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+        <Text style={styles.linkText}>¿No tienes cuenta? Regístrate</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -65,50 +84,27 @@ const iniciarSesion = () =>{
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 30,
-    backgroundColor: '#0F172A'
+    backgroundColor: "#0F172A",
+    padding: 20,
+    justifyContent: "center",
   },
-  title: {
-    fontSize: 34,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 40
-  },
+  logoContainer: { alignItems: "center", marginBottom: 40 },
+  logoText: { fontSize: 32, fontWeight: "bold", color: "#3B82F6" },
+  subtitle: { fontSize: 16, color: "#94A3B8" },
   input: {
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 20,
-    color: '#FFFFFF',
-    fontSize: 16
+    backgroundColor: "#1E293B",
+    color: "#FFF",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
   },
-  loginButton: {
-    backgroundColor: '#3B82F6',
-    padding: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginTop: 10
+  button: {
+    backgroundColor: "#3B82F6",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 10,
   },
-  loginButtonTxt: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold'
-  },
-  registerButton: {
-    marginTop: 20,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#60A5FA',
-    alignItems: 'center'
-  },
-  registerButtonText: {
-    color: '#60A5FA',
-    fontSize: 16,
-    fontWeight: 'bold'
-  }
+  buttonText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
+  linkText: { color: "#3B82F6", textAlign: "center", marginTop: 20 },
 });
