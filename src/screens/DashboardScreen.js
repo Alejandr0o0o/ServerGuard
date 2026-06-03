@@ -111,7 +111,10 @@ export default function DashboardScreen({ navigation }) {
       {perfil?.rol === "Administrador" && (
         <View style={styles.adminSection}>
           <Text style={styles.sectionTitle}>Panel de Administración</Text>
-          <TouchableOpacity style={styles.adminButton}>
+          <TouchableOpacity
+            style={styles.adminButton}
+            onPress={() => navigation.navigate("AdminUsers")}
+          >
             <Text style={styles.adminButtonText}>
               Gestión de Usuarios y Permisos
             </Text>
