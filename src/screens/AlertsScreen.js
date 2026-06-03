@@ -1,13 +1,13 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
-    Alert,
-    FlatList,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../utils/supabase";
 
@@ -27,6 +27,25 @@ export default function AlertsScreen() {
   useEffect(() => {
     obtenerUsuarioActual();
     fetchIncidencias();
+
+    // NUEVO: El "oyente" de tiempo real para emergencias
+    const canalAlertas = supabase
+      .channel("cambios-alertas")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "incidencias" },
+        (payload) => {
+          // Si la base de datos detecta una NUEVA alerta, una EDICIÓN o un BORRADO,
+          // le decimos a la app que recargue la lista automáticamente.
+          fetchIncidencias();
+        },
+      )
+      .subscribe();
+
+    // Limpiamos la conexión cuando el usuario cambia de pestaña
+    return () => {
+      supabase.removeChannel(canalAlertas);
+    };
   }, []);
 
   const obtenerUsuarioActual = async () => {
