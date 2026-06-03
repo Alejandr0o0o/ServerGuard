@@ -19,7 +19,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.alejandro0o0o.ServerGuard"
     },
     "web": {
       "output": "single",
@@ -41,6 +42,11 @@
     ],
     "experiments": {
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0293b3cc-c799-40a7-bf74-184f20e323fc"
+      }
     }
   }
 }

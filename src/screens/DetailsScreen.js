@@ -1,4 +1,4 @@
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import * as SQLite from "expo-sqlite";
 import { useEffect, useState } from "react";
 import {
@@ -8,25 +8,59 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { supabase } from "../utils/supabase";
 
 export default function DetailsScreen({ route, navigation }) {
-  // Recibimos el rack que el usuario tocó en el Dashboard
   const rack = route.params?.rackSeleccionado;
 
+  // Estados existentes
   const [dispositivos, setDispositivos] = useState([]);
   const [db, setDb] = useState(null);
   const [notas, setNotas] = useState([]);
   const [nuevaNota, setNuevaNota] = useState("");
 
+  // NUEVO: Estado para la telemetría del ESP32
+  const [lectura, setLectura] = useState(null);
+
   useEffect(() => {
     if (rack) {
       fetchDispositivos();
       initSQLite();
+      fetchUltimaLectura();
+
+      // NUEVO: Suscripción en tiempo real a los sensores
+      const canalSensores = supabase
+        .channel("cambios-sensores")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "lecturas_sensores" },
+          (payload) => {
+            setLectura(payload.new); // Actualiza la pantalla sola cuando entra un dato
+          },
+        )
+        .subscribe();
+
+      // Limpiar conexión al salir de la pantalla
+      return () => {
+        supabase.removeChannel(canalSensores);
+      };
     }
   }, [rack]);
+
+  // ==========================================
+  // 0. LÓGICA DE SENSORES EN VIVO (ESP32)
+  // ==========================================
+  const fetchUltimaLectura = async () => {
+    const { data, error } = await supabase
+      .from("lecturas_sensores")
+      .select("*")
+      .order("fecha_registro", { ascending: false })
+      .limit(1)
+      .single();
+    if (data) setLectura(data);
+  };
 
   // ==========================================
   // 1. LÓGICA DE SUPABASE (Aparatos IoT)
@@ -35,26 +69,19 @@ export default function DetailsScreen({ route, navigation }) {
     const { data, error } = await supabase
       .from("iot_devices")
       .select("*")
-      .eq("rack_id", rack.id); // Solo traemos los aparatos de ESTE rack
-
+      .eq("rack_id", rack?.id);
     if (data) setDispositivos(data);
-    if (error) console.error("Error obteniendo aparatos:", error);
   };
 
   const toggleStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === "active" ? "inactive" : "active";
-
-    // Actualizamos la UI inmediatamente para que se sienta rápido
     setDispositivos(
       dispositivos.map((d) => (d.id === id ? { ...d, status: newStatus } : d)),
     );
-
-    // Mandamos la orden a Supabase
-    const { error } = await supabase
+    await supabase
       .from("iot_devices")
       .update({ status: newStatus })
       .eq("id", id);
-    if (error) console.error("Error actualizando estado:", error);
   };
 
   // ==========================================
@@ -80,7 +107,6 @@ export default function DetailsScreen({ route, navigation }) {
 
   const cargarNotas = async (database) => {
     try {
-      // Solo cargamos las notas de este Rack en específico
       const result = await database.getAllAsync(
         "SELECT * FROM bitacora_racks WHERE rack_id = ? ORDER BY id DESC;",
         [rack.id],
@@ -106,7 +132,6 @@ export default function DetailsScreen({ route, navigation }) {
     }
   };
 
-  // Si no se seleccionó ningún rack (por ejemplo, si entraron tocando la pestaña directamente)
   if (!rack) {
     return (
       <View style={styles.centered}>
@@ -130,7 +155,7 @@ export default function DetailsScreen({ route, navigation }) {
         <View>
           <Text style={styles.title}>{rack.nombre}</Text>
           <Text style={styles.subtitle}>
-            Estado general:{" "}
+            Estado:{" "}
             <Text
               style={{
                 color: rack.estado === "Normal" ? "#10B981" : "#EF4444",
@@ -142,7 +167,73 @@ export default function DetailsScreen({ route, navigation }) {
         </View>
       </View>
 
+      {/* NUEVA SECCIÓN: Telemetría en Tiempo Real */}
+      <Text style={styles.sectionTitle}>Condiciones Físicas</Text>
+      <View style={styles.grid}>
+        <View style={styles.telemetryCard}>
+          <MaterialCommunityIcons
+            name="thermometer"
+            size={32}
+            color={lectura?.temperatura > 29 ? "#EF4444" : "#3B82F6"}
+          />
+          <Text style={styles.valueText}>
+            {lectura?.temperatura ? `${lectura.temperatura}°C` : "--"}
+          </Text>
+          <Text style={styles.label}>Temperatura</Text>
+        </View>
+
+        <View style={styles.telemetryCard}>
+          <MaterialCommunityIcons
+            name="water-percent"
+            size={32}
+            color="#0EA5E9"
+          />
+          <Text style={styles.valueText}>
+            {lectura?.humedad ? `${lectura.humedad}%` : "--"}
+          </Text>
+          <Text style={styles.label}>Humedad</Text>
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.telemetryCard,
+          {
+            width: "100%",
+            flexDirection: "row",
+            justifyContent: "space-between",
+            marginBottom: 25,
+          },
+        ]}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <MaterialCommunityIcons
+            name={
+              lectura?.gas_detectado ? "fire-alert" : "smoke-detector-outline"
+            }
+            size={28}
+            color={lectura?.gas_detectado ? "#EF4444" : "#10B981"}
+          />
+          <Text style={[styles.label, { marginLeft: 15, fontSize: 14 }]}>
+            Sensor de Gas / Humo
+          </Text>
+        </View>
+        <Text
+          style={[
+            styles.valueText,
+            {
+              color: lectura?.gas_detectado ? "#EF4444" : "#10B981",
+              fontSize: 16,
+              marginTop: 0,
+            },
+          ]}
+        >
+          {lectura?.gas_detectado ? "PELIGRO" : "Limpio"}
+        </Text>
+      </View>
+
       {/* SECCIÓN 1: Control de Aparatos IoT (Supabase) */}
+      <View style={styles.divider} />
       <Text style={styles.sectionTitle}>Aparatos Instalados (Nube)</Text>
       {dispositivos.length === 0 ? (
         <Text style={styles.emptyText}>
@@ -173,7 +264,6 @@ export default function DetailsScreen({ route, navigation }) {
       {/* SECCIÓN 2: Bitácora de Mantenimiento (SQLite Local) */}
       <View style={styles.divider} />
       <Text style={styles.sectionTitle}>Bitácora Local de Mantenimiento</Text>
-
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
@@ -224,12 +314,38 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: "#94A3B8" },
 
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#3B82F6",
     marginBottom: 15,
     textTransform: "uppercase",
   },
+
+  // Estilos Nuevos para Telemetría
+  grid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
+  telemetryCard: {
+    backgroundColor: "#1E293B",
+    width: "48%",
+    padding: 15,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  valueText: {
+    color: "#FFF",
+    fontSize: 22,
+    fontWeight: "bold",
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  label: { color: "#94A3B8", fontSize: 12, textAlign: "center" },
+  emptyText: { color: "#64748B", marginBottom: 10 },
+
   card: {
     backgroundColor: "#1E293B",
     padding: 15,
@@ -247,7 +363,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  divider: { height: 1, backgroundColor: "#334155", marginVertical: 25 },
+  divider: { height: 1, backgroundColor: "#334155", marginVertical: 20 },
 
   inputContainer: { flexDirection: "row", marginBottom: 15 },
   input: {
