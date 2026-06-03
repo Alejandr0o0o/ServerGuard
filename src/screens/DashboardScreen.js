@@ -1,4 +1,4 @@
-import { MaterialIcons } from "@expo/vector-icons"; // Para los iconos de los servidores
+import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,50 +13,65 @@ import { supabase } from "../utils/supabase";
 export default function DashboardScreen({ navigation }) {
   const [perfil, setPerfil] = useState(null);
   const [dispositivos, setDispositivos] = useState([]);
+  const [totalAlertas, setTotalAlertas] = useState(0);
+  const [totalSensores, setTotalSensores] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // Cada vez que la pantalla gana el foco (cuando regresas a ella), se actualizan los datos
   useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      fetchPerfil();
+      fetchRacks();
+      fetchEstadisticas();
+    });
+
+    // También ejecutamos la primera vez que carga
     fetchPerfil();
     fetchRacks();
-  }, []);
+    fetchEstadisticas();
+
+    return unsubscribe;
+  }, [navigation]);
 
   const fetchPerfil = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("perfiles")
-          .select("nombre, rol")
-          .eq("id", user.id)
-          .single();
-        if (data) setPerfil(data);
-      }
-    } catch (error) {
-      console.error("Error obteniendo perfil:", error);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from("perfiles")
+        .select("nombre, rol")
+        .eq("id", user.id)
+        .single();
+      if (data) setPerfil(data);
     }
   };
 
-  // Función para obtener los Racks de la tabla 'racks'
   const fetchRacks = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("racks")
-        .select("*")
-        .order("id", { ascending: true });
-
-      if (error) throw error;
-      if (data) setDispositivos(data); // Reutilizamos el estado dispositivos para guardar los racks
-    } catch (error) {
-      console.error("Error obteniendo racks:", error);
-    } finally {
-      setLoading(false);
-    }
+    const { data } = await supabase
+      .from("racks")
+      .select("*")
+      .order("id", { ascending: true });
+    if (data) setDispositivos(data);
+    setLoading(false);
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  // NUEVA FUNCIÓN: Cuenta las alertas y sensores reales en la BD
+  const fetchEstadisticas = async () => {
+    try {
+      const { count: countAlertas } = await supabase
+        .from("incidencias")
+        .select("*", { count: "exact", head: true });
+
+      const { count: countSensores } = await supabase
+        .from("iot_devices")
+        .select("*", { count: "exact", head: true });
+
+      setTotalAlertas(countAlertas || 0);
+      setTotalSensores(countSensores || 0);
+    } catch (error) {
+      console.error("Error obteniendo estadísticas:", error);
+    }
   };
 
   if (loading) {
@@ -74,19 +89,16 @@ export default function DashboardScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Encabezado */}
+      {/* Encabezado sin el botón de salir (lo moveremos al perfil) */}
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Hola {perfil?.nombre} 👋</Text>
           <Text style={styles.subtitle}>Centro de Datos Principal</Text>
           <Text style={styles.roleBadge}>Rol: {perfil?.rol}</Text>
         </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Salir</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Tarjetas de Estadísticas */}
+      {/* Tarjetas de Estadísticas DInámicas */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{dispositivos.length}</Text>
@@ -95,19 +107,21 @@ export default function DashboardScreen({ navigation }) {
         <View
           style={[
             styles.statCard,
-            { borderLeftColor: "#EAB308", borderLeftWidth: 4 },
+            {
+              borderLeftColor: totalAlertas > 0 ? "#EAB308" : "#334155",
+              borderLeftWidth: 4,
+            },
           ]}
         >
-          <Text style={styles.statValue}>3</Text>
+          <Text style={styles.statValue}>{totalAlertas}</Text>
           <Text style={styles.statLabel}>Alertas</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>48</Text>
-          <Text style={styles.statLabel}>Sensores</Text>
+          <Text style={styles.statValue}>{totalSensores}</Text>
+          <Text style={styles.statLabel}>Aparatos</Text>
         </View>
       </View>
 
-      {/* SEGURIDAD BASADA EN ROLES */}
       {perfil?.rol === "Administrador" && (
         <View style={styles.adminSection}>
           <Text style={styles.sectionTitle}>Panel de Administración</Text>
@@ -122,10 +136,8 @@ export default function DashboardScreen({ navigation }) {
         </View>
       )}
 
-      {/* Sección de Servidores/Racks conectada a la BD */}
       <View style={styles.racksSection}>
         <Text style={styles.sectionTitle}>Racks Monitoreados</Text>
-
         {dispositivos.map((rack) => (
           <TouchableOpacity
             key={rack.id}
@@ -140,7 +152,6 @@ export default function DashboardScreen({ navigation }) {
             <View style={styles.rackInfo}>
               <Text style={styles.rackName}>{rack.nombre}</Text>
               <View style={styles.rackStatusContainer}>
-                {/* Lógica de colores basada en el estado del Rack */}
                 <View
                   style={[
                     styles.statusDot,
@@ -182,9 +193,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontWeight: "bold",
   },
-  logoutButton: { backgroundColor: "#1E293B", padding: 10, borderRadius: 8 },
-  logoutText: { color: "#EF4444", fontWeight: "bold" },
-
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -204,7 +212,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
     textAlign: "center",
   },
-
   adminSection: {
     backgroundColor: "#1E293B",
     padding: 20,
@@ -226,7 +233,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   adminButtonText: { color: "#FFF", fontWeight: "bold" },
-
   racksSection: { marginBottom: 40 },
   rackCard: {
     backgroundColor: "#1E293B",

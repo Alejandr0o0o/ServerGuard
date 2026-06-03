@@ -1,84 +1,44 @@
-import {
-  Feather,
-  MaterialCommunityIcons,
-  MaterialIcons,
-} from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { CustomTabButton } from "../components/ReusableComponents";
-import Colors from "../constants/Colors";
-import SettingsScreen from "../screens/SettingsScreen";
 
-// Importamos las pantallas reales
+import AlertsScreen from "../screens/AlertsScreen";
 import DashboardScreen from "../screens/DashboardScreen";
-import DetailsScreen from "../screens/DetailsScreen";
 import UserProfileScreen from "../screens/UserProfileScreen";
+
 const Tab = createBottomTabNavigator();
-
-// Función auxiliar para elegir el icono adecuado según la pestaña y estado
-const getIcon = (routeName, focused) => {
-  const color = focused ? Colors.primary : Colors.grayIcon;
-  const size = 26;
-
-  switch (routeName) {
-    case "Dashboard":
-      return (
-        <MaterialCommunityIcons
-          name="view-dashboard"
-          size={size}
-          color={color}
-        />
-      );
-    case "Details":
-      return (
-        <MaterialCommunityIcons
-          name="file-document-outline"
-          size={size}
-          color={color}
-        />
-      );
-    case "User":
-      return <MaterialIcons name="person-outline" size={size} color={color} />;
-    case "Settings":
-      return <Feather name="settings" size={size} color={color} />;
-    default:
-      return null;
-  }
-};
 
 export default function MainTabNavigator() {
   return (
     <Tab.Navigator
-      initialRouteName="Dashboard"
       screenOptions={({ route }) => ({
-        headerShown: false, // Ocultar el header predeterminado
+        headerShown: false,
         tabBarStyle: {
-          backgroundColor: Colors.background,
-          borderTopWidth: 0,
-          height: 90,
+          backgroundColor: "#0F172A",
+          borderTopColor: "#334155",
+          height: 60,
           paddingBottom: 10,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 6,
-          elevation: 15,
+          paddingTop: 10,
         },
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.grayIcon,
-        tabBarLabelStyle: { fontSize: 13, fontWeight: "600", marginBottom: 5 },
-        tabBarIcon: ({ focused }) => getIcon(route.name, focused),
-        tabBarButton: (props) => <CustomTabButton {...props} />,
+        tabBarActiveTintColor: "#3B82F6",
+        tabBarInactiveTintColor: "#64748B",
+        tabBarIcon: ({ color, size }) => {
+          let iconName;
+
+          if (route.name === "Inicio") {
+            iconName = "dashboard";
+          } else if (route.name === "Alertas") {
+            iconName = "notifications";
+          } else if (route.name === "Perfil") {
+            iconName = "person";
+          }
+
+          return <MaterialIcons name={iconName} size={size} color={color} />;
+        },
       })}
     >
-      {/* ¡AQUÍ ESTÁ LA SOLUCIÓN! Faltaban las pantallas hijas */}
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-
-      {/* Podemos poner pestañas de "relleno" para que se vea como en tu diseño, 
-          apuntando al Dashboard temporalmente o creando componentes vacíos */}
-      <Tab.Screen name="Details" component={DetailsScreen} />
-
-      <Tab.Screen name="User" component={UserProfileScreen} />
-
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Inicio" component={DashboardScreen} />
+      <Tab.Screen name="Alertas" component={AlertsScreen} />
+      <Tab.Screen name="Perfil" component={UserProfileScreen} />
     </Tab.Navigator>
   );
 }

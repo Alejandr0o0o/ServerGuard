@@ -1,184 +1,129 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useState } from "react";
-import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import {
-    ProfileDetailRow,
-    SecurityToggleCard,
-} from "../components/ReusableComponents";
-import Colors from "../constants/Colors";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { supabase } from "../utils/supabase";
 
-export default function UserProfileScreen({ route, navigation }) {
-  // Capturar parámetros enviados (ej. si vinieras desde un login) o valores por defecto
-  const {
-    adminName = "Alejandro Aguirre",
-    role = "Chief Systems Administrator",
-  } = route.params || {};
+export default function UserProfileScreen() {
+  const [perfil, setPerfil] = useState(null);
+  const [email, setEmail] = useState("");
 
-  // HOOKS: Manejo de estado para el Switch
-  const [alarmsEnabled, setAlarmsEnabled] = useState(true);
+  useEffect(() => {
+    fetchUsuario();
+  }, []);
+
+  const fetchUsuario = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      setEmail(user.email);
+      const { data } = await supabase
+        .from("perfiles")
+        .select("nombre, rol, creado_en")
+        .eq("id", user.id)
+        .single();
+      if (data) setPerfil(data);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-    >
-      {/* HEADER (Reutilizado del Dashboard para consistencia) */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <MaterialCommunityIcons
-            name="shield-outline"
-            size={32}
-            color={Colors.primary}
+    <View style={styles.container}>
+      <Text style={styles.headerTitle}>Mi Perfil</Text>
+
+      <View style={styles.profileCard}>
+        <View style={styles.avatar}>
+          <MaterialIcons name="person" size={60} color="#3B82F6" />
+        </View>
+        <Text style={styles.name}>{perfil?.nombre || "Cargando..."}</Text>
+        <Text style={styles.email}>{email}</Text>
+
+        <View style={styles.infoRow}>
+          <MaterialIcons
+            name="admin-panel-settings"
+            size={20}
+            color="#94A3B8"
           />
-          <Text style={styles.appName}>SERVERGUARD</Text>
+          <Text style={styles.infoText}>
+            Nivel de acceso:{" "}
+            <Text style={{ color: "#3B82F6", fontWeight: "bold" }}>
+              {perfil?.rol}
+            </Text>
+          </Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <MaterialIcons name="date-range" size={20} color="#94A3B8" />
+          <Text style={styles.infoText}>
+            Registrado:{" "}
+            {perfil?.creado_en
+              ? new Date(perfil.creado_en).toLocaleDateString()
+              : ""}
+          </Text>
         </View>
       </View>
 
-      {/* SECCIÓN DEL PERFIL PRINCIPAL */}
-      <View style={styles.profileHeader}>
-        <View style={styles.avatarLarge}>
-          <Text style={styles.avatarLargeText}>{adminName.charAt(0)}</Text>
-          <View
-            style={[
-              styles.onlineDot,
-              { backgroundColor: Colors.statusOptimal },
-            ]}
-          />
-        </View>
-        <Text style={styles.nameText}>{adminName}</Text>
-        <Text style={styles.roleText}>{role}</Text>
-      </View>
-
-      {/* CONTENEDOR DE TARJETAS DE DETALLES */}
-      <View style={styles.detailsCard}>
-        {/* Usando los nombres correctos de MaterialIcons */}
-        <ProfileDetailRow iconName="badge" label="EMPLOYEE ID" value="A-4567" />
-        <View style={styles.divider} />
-        <ProfileDetailRow
-          iconName="business"
-          label="DEPARTMENT"
-          value="IT Infrastructure"
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <MaterialIcons
+          name="logout"
+          size={24}
+          color="#FFF"
+          style={{ marginRight: 10 }}
         />
-        <View style={styles.divider} />
-        <ProfileDetailRow
-          iconName="wb-sunny"
-          label="SHIFT"
-          value="Morning (8 AM - 5 PM)"
-        />
-      </View>
-
-      {/* SECCIÓN DE SEGURIDAD */}
-      <Text style={styles.sectionTitle}>SECURITY</Text>
-      <SecurityToggleCard
-        title="Emergency Alarms"
-        subtitle="Receive critical alerts"
-        switchValue={alarmsEnabled}
-        onSwitchChange={setAlarmsEnabled}
-      />
-
-      {/* ACCIÓN DE SALIR */}
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={() => {
-          /* Futura navegación a pantalla de Login */
-        }}
-      >
-        <MaterialCommunityIcons name="export" size={24} color={Colors.danger} />
-        <Text style={styles.logoutButtonText}>Log Out</Text>
+        <Text style={styles.logoutText}>Cerrar Sesión Segura</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
-    paddingHorizontal: 20,
+    backgroundColor: "#0F172A",
+    padding: 20,
+    paddingTop: 50,
   },
-  contentContainer: { paddingBottom: 40, paddingTop: 60 },
-  header: { flexDirection: "row", alignItems: "center", marginBottom: 30 },
-  headerLeft: { flexDirection: "row", alignItems: "center" },
-  appName: {
-    fontSize: 20,
+  headerTitle: {
+    fontSize: 24,
     fontWeight: "bold",
-    color: Colors.primary,
-    marginLeft: 10,
-    textTransform: "uppercase",
+    color: "#FFF",
+    marginBottom: 25,
   },
-  profileHeader: { alignItems: "center", marginBottom: 40 },
-  avatarLarge: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: Colors.primary,
-    justifyContent: "center",
+  profileCard: {
+    backgroundColor: "#1E293B",
+    borderRadius: 12,
+    padding: 20,
     alignItems: "center",
-    marginBottom: 20,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 12, // Efecto de brillo
-  },
-  avatarLargeText: {
-    fontSize: 60,
-    fontWeight: "bold",
-    color: Colors.background,
-  },
-  onlineDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 4,
-    borderColor: Colors.background,
-    position: "absolute",
-    bottom: -5,
-    right: -5,
-  },
-  nameText: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-    marginBottom: 5,
-  },
-  roleText: { fontSize: 16, color: Colors.primary, fontWeight: "600" },
-  detailsCard: {
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 16,
-    padding: 22,
     marginBottom: 30,
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#4B5563",
-    marginVertical: 8,
-    paddingHorizontal: 4,
+  avatar: {
+    backgroundColor: "#334155",
+    padding: 20,
+    borderRadius: 50,
+    marginBottom: 15,
   },
-  sectionTitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textTransform: "uppercase",
-    fontWeight: "600",
-    marginBottom: 12,
+  name: { fontSize: 22, fontWeight: "bold", color: "#FFF", marginBottom: 5 },
+  email: { fontSize: 14, color: "#94A3B8", marginBottom: 20 },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F172A",
+    width: "100%",
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
   },
+  infoText: { color: "#FFF", marginLeft: 10, fontSize: 14 },
   logoutButton: {
+    backgroundColor: "#EF4444",
+    padding: 15,
+    borderRadius: 12,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 40,
-    padding: 15,
   },
-  logoutButtonText: {
-    color: Colors.danger,
-    fontSize: 18,
-    fontWeight: "700",
-    marginLeft: 10,
-  },
+  logoutText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
 });
