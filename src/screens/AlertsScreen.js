@@ -1,3 +1,4 @@
+import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
     Alert,
@@ -14,8 +15,14 @@ export default function AlertsScreen() {
   const [incidencias, setIncidencias] = useState([]);
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [nivel, setNivel] = useState("Advertencia"); // Advertencia o Critica
+  const [nivel, setNivel] = useState("Advertencia");
+
+  // Estados de sesión y seguridad
   const [userId, setUserId] = useState(null);
+  const [userRol, setUserRol] = useState(null);
+
+  // Estado para saber si estamos editando
+  const [idEdicion, setIdEdicion] = useState(null);
 
   useEffect(() => {
     obtenerUsuarioActual();
@@ -26,98 +33,175 @@ export default function AlertsScreen() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) setUserId(user.id);
+    if (user) {
+      setUserId(user.id);
+      // Buscamos qué rol tiene para saber qué mostrarle
+      const { data } = await supabase
+        .from("perfiles")
+        .select("rol")
+        .eq("id", user.id)
+        .single();
+      if (data) setUserRol(data.rol);
+    }
   };
 
   const fetchIncidencias = async () => {
+    // Al agregar 'perfiles(nombre)', Supabase hace un JOIN automático gracias a la llave foránea que configuramos
     const { data, error } = await supabase
       .from("incidencias")
-      .select("*")
+      .select("*, perfiles(nombre)")
       .order("fecha_registro", { ascending: false });
 
     if (data) setIncidencias(data);
     if (error) console.error("Error cargando incidencias:", error);
   };
 
-  const guardarIncidencia = async () => {
+  const guardarOActualizarIncidencia = async () => {
     if (!titulo || !descripcion) {
       Alert.alert("Error", "Por favor llena el título y la descripción.");
       return;
     }
 
-    const { error } = await supabase
-      .from("incidencias")
-      .insert([
-        { titulo, descripcion, nivel_urgencia: nivel, creado_por: userId },
-      ]);
+    if (idEdicion) {
+      // Modo Edición (Solo para Admins)
+      const { error } = await supabase
+        .from("incidencias")
+        .update({ titulo, descripcion, nivel_urgencia: nivel })
+        .eq("id", idEdicion);
 
-    if (error) {
-      Alert.alert("Error", error.message);
+      if (error) Alert.alert("Error", error.message);
+      else {
+        Alert.alert("Éxito", "Incidencia actualizada correctamente.");
+        cancelarEdicion();
+      }
     } else {
-      Alert.alert("Éxito", "Incidencia registrada correctamente.");
-      setTitulo("");
-      setDescripcion("");
-      fetchIncidencias(); // Recargar la lista
+      // Modo Creación
+      const { error } = await supabase
+        .from("incidencias")
+        .insert([
+          { titulo, descripcion, nivel_urgencia: nivel, creado_por: userId },
+        ]);
+
+      if (error) Alert.alert("Error", error.message);
+      else {
+        Alert.alert("Éxito", "Incidencia registrada correctamente.");
+        cancelarEdicion();
+      }
     }
+    fetchIncidencias();
   };
 
-  const getBorderColor = (nivelUrgencia) => {
-    return nivelUrgencia === "Critica" ? "#EF4444" : "#EAB308";
+  const confirmarEliminacion = (id) => {
+    Alert.alert(
+      "Eliminar Alerta",
+      "¿Estás seguro de que deseas borrar este reporte de forma permanente?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await supabase
+              .from("incidencias")
+              .delete()
+              .eq("id", id);
+            if (error) Alert.alert("Error", error.message);
+            else fetchIncidencias();
+          },
+        },
+      ],
+    );
   };
+
+  const cargarParaEditar = (item) => {
+    setTitulo(item.titulo);
+    setDescripcion(item.descripcion);
+    setNivel(item.nivel_urgencia);
+    setIdEdicion(item.id);
+  };
+
+  const cancelarEdicion = () => {
+    setTitulo("");
+    setDescripcion("");
+    setNivel("Advertencia");
+    setIdEdicion(null);
+  };
+
+  const getBorderColor = (nivelUrgencia) =>
+    nivelUrgencia === "Critica" ? "#EF4444" : "#EAB308";
 
   return (
     <View style={styles.container}>
       <Text style={styles.headerTitle}>Gestión de Incidencias</Text>
 
-      {/* Formulario de Nueva Incidencia (Caso de Prueba CP-F05) */}
-      <View style={styles.formContainer}>
-        <Text style={styles.formTitle}>Registrar nuevo fallo</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Título del problema (Ej. Caída de red)"
-          placeholderTextColor="#64748B"
-          value={titulo}
-          onChangeText={setTitulo}
-        />
-        <TextInput
-          style={[styles.input, { height: 80, textAlignVertical: "top" }]}
-          placeholder="Descripción detallada..."
-          placeholderTextColor="#64748B"
-          value={descripcion}
-          onChangeText={setDescripcion}
-          multiline
-        />
+      {/* SEGURIDAD: El formulario NO se muestra si el rol es 'Usuario' */}
+      {userRol !== "Usuario" && (
+        <View style={styles.formContainer}>
+          <View style={styles.formHeader}>
+            <Text style={styles.formTitle}>
+              {idEdicion
+                ? "Editando alerta existente"
+                : "Registrar nuevo fallo"}
+            </Text>
+            {idEdicion && (
+              <TouchableOpacity onPress={cancelarEdicion}>
+                <MaterialIcons name="close" size={20} color="#EF4444" />
+              </TouchableOpacity>
+            )}
+          </View>
 
-        <View style={styles.row}>
+          <TextInput
+            style={styles.input}
+            placeholder="Título del problema (Ej. Caída de red)"
+            placeholderTextColor="#64748B"
+            value={titulo}
+            onChangeText={setTitulo}
+          />
+          <TextInput
+            style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+            placeholder="Descripción detallada..."
+            placeholderTextColor="#64748B"
+            value={descripcion}
+            onChangeText={setDescripcion}
+            multiline
+          />
+
+          <View style={styles.row}>
+            <TouchableOpacity
+              style={[
+                styles.levelButton,
+                nivel === "Advertencia" && styles.levelButtonActiveAdv,
+              ]}
+              onPress={() => setNivel("Advertencia")}
+            >
+              <Text style={styles.levelText}>Advertencia</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.levelButton,
+                nivel === "Critica" && styles.levelButtonActiveCrit,
+              ]}
+              onPress={() => setNivel("Critica")}
+            >
+              <Text style={styles.levelText}>Crítica</Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             style={[
-              styles.levelButton,
-              nivel === "Advertencia" && styles.levelButtonActiveAdv,
+              styles.submitButton,
+              idEdicion && { backgroundColor: "#10B981" },
             ]}
-            onPress={() => setNivel("Advertencia")}
+            onPress={guardarOActualizarIncidencia}
           >
-            <Text style={styles.levelText}>Advertencia</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.levelButton,
-              nivel === "Critica" && styles.levelButtonActiveCrit,
-            ]}
-            onPress={() => setNivel("Critica")}
-          >
-            <Text style={styles.levelText}>Crítica</Text>
+            <Text style={styles.submitButtonText}>
+              {idEdicion ? "Actualizar Reporte" : "Guardar / Enviar"}
+            </Text>
           </TouchableOpacity>
         </View>
+      )}
 
-        <TouchableOpacity
-          style={styles.submitButton}
-          onPress={guardarIncidencia}
-        >
-          <Text style={styles.submitButtonText}>Guardar / Enviar</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Lista de Incidencias */}
+      {/* Lista de Incidencias (Visible para todos) */}
       <Text style={styles.listTitle}>Historial de Alertas</Text>
       <FlatList
         data={incidencias}
@@ -144,9 +228,38 @@ export default function AlertsScreen() {
               </View>
             </View>
             <Text style={styles.cardDescription}>{item.descripcion}</Text>
-            <Text style={styles.cardDate}>
-              {new Date(item.fecha_registro).toLocaleString()}
-            </Text>
+
+            <View style={styles.cardFooter}>
+              <View style={styles.authorRow}>
+                <MaterialIcons name="person" size={14} color="#64748B" />
+                {/* Aquí mostramos el nombre del autor gracias a la modificación en BD */}
+                <Text style={styles.cardDate}>
+                  {" "}
+                  Por: {item.perfiles?.nombre || "Sistema Automático"}
+                </Text>
+              </View>
+              <Text style={styles.cardDate}>
+                {new Date(item.fecha_registro).toLocaleDateString()}
+              </Text>
+            </View>
+
+            {/* SEGURIDAD: Botones de control SOLO visibles para Administradores */}
+            {userRol === "Administrador" && (
+              <View style={styles.adminControls}>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => cargarParaEditar(item)}
+                >
+                  <MaterialIcons name="edit" size={20} color="#3B82F6" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => confirmarEliminacion(item.id)}
+                >
+                  <MaterialIcons name="delete" size={20} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
         ListEmptyComponent={
@@ -177,12 +290,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 25,
   },
-  formTitle: {
-    color: "#3B82F6",
-    fontWeight: "bold",
+  formHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 15,
-    fontSize: 16,
   },
+  formTitle: { color: "#3B82F6", fontWeight: "bold", fontSize: 16 },
   input: {
     backgroundColor: "#0F172A",
     color: "#FFF",
@@ -247,6 +361,22 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textTransform: "uppercase",
   },
-  cardDescription: { color: "#94A3B8", fontSize: 14, marginBottom: 8 },
-  cardDate: { color: "#64748B", fontSize: 11 },
+  cardDescription: { color: "#94A3B8", fontSize: 14, marginBottom: 10 },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  authorRow: { flexDirection: "row", alignItems: "center" },
+  cardDate: { color: "#64748B", fontSize: 12 },
+
+  adminControls: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#334155",
+    paddingTop: 10,
+  },
+  iconButton: { marginLeft: 15, padding: 5 },
 });

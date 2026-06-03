@@ -122,20 +122,6 @@ export default function DashboardScreen({ navigation }) {
         </View>
       </View>
 
-      {perfil?.rol === "Administrador" && (
-        <View style={styles.adminSection}>
-          <Text style={styles.sectionTitle}>Panel de Administración</Text>
-          <TouchableOpacity
-            style={styles.adminButton}
-            onPress={() => navigation.navigate("AdminUsers")}
-          >
-            <Text style={styles.adminButtonText}>
-              Gestión de Usuarios y Permisos
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       <View style={styles.racksSection}>
         <Text style={styles.sectionTitle}>Racks Monitoreados</Text>
         {dispositivos.map((rack) => (
