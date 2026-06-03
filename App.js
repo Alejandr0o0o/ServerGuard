@@ -1,8 +1,8 @@
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
+import DetailsScreen from "./src/screens/DetailsScreen";
 import { supabase } from "./src/utils/supabase";
-
 // Tus navegadores y pantallas
 import MainTabNavigator from "./src/navigation/MainTabNavigator";
 import AdminUsersScreen from "./src/screens/AdminUsersScreen"; // <-- Aquí importamos tu nueva pantalla
@@ -37,8 +37,9 @@ export default function App() {
         {session && session.user ? (
           <>
             <Stack.Screen name="Main" component={MainTabNavigator} />
-            {/* Aquí agregamos la ruta del panel de administración para el SuperAdmin */}
             <Stack.Screen name="AdminUsers" component={AdminUsersScreen} />
+            {/* Agregamos la pantalla de Detalles aquí */}
+            <Stack.Screen name="Details" component={DetailsScreen} />
           </>
         ) : (
           <>
