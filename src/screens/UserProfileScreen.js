@@ -1,11 +1,21 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { supabase } from "../utils/supabase";
 
 export default function UserProfileScreen() {
   const [perfil, setPerfil] = useState(null);
   const [email, setEmail] = useState("");
+  const [nuevaPassword, setNuevaPassword] = useState("");
+  const [cargandoClave, setCargandoClave] = useState(false);
 
   useEffect(() => {
     fetchUsuario();
@@ -19,10 +29,32 @@ export default function UserProfileScreen() {
       setEmail(user.email);
       const { data } = await supabase
         .from("perfiles")
-        .select("nombre, rol, creado_en")
+        .select("*")
         .eq("id", user.id)
         .single();
       if (data) setPerfil(data);
+    }
+  };
+
+  // Función exclusiva del usuario logueado para cambiar su propia contraseña
+  const cambiarMiPassword = async () => {
+    if (nuevaPassword.length < 6) {
+      Alert.alert("Error", "La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    setCargandoClave(true);
+    const { error } = await supabase.auth.updateUser({
+      password: nuevaPassword,
+    });
+
+    setCargandoClave(false);
+
+    if (error) {
+      Alert.alert("Error", error.message);
+    } else {
+      Alert.alert("Éxito", "Tu contraseña ha sido actualizada correctamente.");
+      setNuevaPassword(""); // Limpiamos la cajita
     }
   };
 
@@ -31,7 +63,7 @@ export default function UserProfileScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <Text style={styles.headerTitle}>Mi Perfil</Text>
 
       <View style={styles.profileCard}>
@@ -54,16 +86,42 @@ export default function UserProfileScreen() {
             </Text>
           </Text>
         </View>
-
         <View style={styles.infoRow}>
-          <MaterialIcons name="date-range" size={20} color="#94A3B8" />
+          <MaterialIcons name="security" size={20} color="#94A3B8" />
           <Text style={styles.infoText}>
-            Registrado:{" "}
-            {perfil?.creado_en
-              ? new Date(perfil.creado_en).toLocaleDateString()
-              : ""}
+            Estado de cuenta:{" "}
+            <Text
+              style={{
+                color: perfil?.estado === "Activo" ? "#10B981" : "#EF4444",
+                fontWeight: "bold",
+              }}
+            >
+              {perfil?.estado}
+            </Text>
           </Text>
         </View>
+      </View>
+
+      {/* SECCIÓN NUEVA: Cambio de Contraseña */}
+      <View style={styles.passwordSection}>
+        <Text style={styles.sectionTitle}>Actualizar Contraseña</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Escribe tu nueva contraseña..."
+          placeholderTextColor="#64748B"
+          secureTextEntry
+          value={nuevaPassword}
+          onChangeText={setNuevaPassword}
+        />
+        <TouchableOpacity
+          style={styles.updateButton}
+          onPress={cambiarMiPassword}
+          disabled={cargandoClave}
+        >
+          <Text style={styles.updateButtonText}>
+            {cargandoClave ? "Actualizando..." : "Guardar nueva contraseña"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -75,7 +133,9 @@ export default function UserProfileScreen() {
         />
         <Text style={styles.logoutText}>Cerrar Sesión Segura</Text>
       </TouchableOpacity>
-    </View>
+
+      <View style={{ height: 40 }} />
+    </ScrollView>
   );
 }
 
@@ -97,7 +157,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
     alignItems: "center",
-    marginBottom: 30,
+    marginBottom: 25,
   },
   avatar: {
     backgroundColor: "#334155",
@@ -117,6 +177,38 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   infoText: { color: "#FFF", marginLeft: 10, fontSize: 14 },
+
+  passwordSection: {
+    backgroundColor: "#1E293B",
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  sectionTitle: {
+    color: "#3B82F6",
+    fontWeight: "bold",
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  input: {
+    backgroundColor: "#0F172A",
+    color: "#FFF",
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  updateButton: {
+    backgroundColor: "#3B82F6",
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  updateButtonText: { color: "#FFF", fontWeight: "bold" },
+
   logoutButton: {
     backgroundColor: "#EF4444",
     padding: 15,
